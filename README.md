@@ -76,9 +76,9 @@ Titles with fewer than `MIN_VOTES` IMDb votes (default 100) are left out of the 
 
 Interactive docs: http://localhost:8000/docs
 
-## Publishing on GitHub Pages (free, updated weekly)
+## Publishing on GitHub Pages (free, updated every 3 days)
 
-`.github/workflows/weekly.yml` runs the pipeline on GitHub Actions every Monday at 06:00 UTC and publishes the dashboard as a static site on GitHub Pages. No server is involved: `backend/export_static.py` writes the dashboard's data as JSON files, and the frontend, built with `VITE_STATIC_DATA=1`, reads those instead of calling the API. The run button is hidden; start a run from the **Actions** tab instead (**Weekly run → Run workflow**).
+`.github/workflows/update.yml` runs the pipeline on GitHub Actions every 3 days at 06:00 UTC (the 1st, 4th, 7th … of each month) and publishes the dashboard as a static site on GitHub Pages. No server is involved: `backend/export_static.py` writes the dashboard's data as JSON files, and the frontend, built with `VITE_STATIC_DATA=1`, reads those instead of calling the API. The run button is hidden; start a run from the **Actions** tab instead (**Update dashboard → Run workflow**).
 
 The SQLite database (title-to-IMDb matches and every past run) lives as `catalog.db` on a GitHub release tagged `data`, not in git, so the repo stays small. Each run downloads it, adds a run and uploads it back. If there's no `data` release yet, the first run builds a new database, which takes about 20 minutes.
 
@@ -88,8 +88,8 @@ One-time setup (public repo):
 2. **Settings → Secrets and variables → Actions → New repository secret:** `TMDB_READ_TOKEN` = your TMDB API Read Access Token.
 3. **Settings → Pages → Source:** GitHub Actions.
 4. Optional, to keep your local history and skip the slow first run: upload your local database first:
-   `gh release create data backend/data/catalog.db --title "Dashboard database" --latest=false --notes "Used by the weekly workflow."`
-5. **Actions → Weekly run → Run workflow.** The site appears at `https://<user>.github.io/<repo>/`.
+   `gh release create data backend/data/catalog.db --title "Dashboard database" --latest=false --notes "Used by the scheduled workflow."`
+5. **Actions → Update dashboard → Run workflow.** The site appears at `https://<user>.github.io/<repo>/`.
 
 Region and other settings for the online run are in the workflow's `env:` block. Don't delete the `data` release: it holds the history.
 
@@ -114,7 +114,7 @@ backend/
     sources/       TMDB, IMDb dataset and OMDb clients
   export_static.py One run plus a JSON export, for GitHub Pages
 .github/workflows/
-  weekly.yml       Weekly run on GitHub Actions, deployed to GitHub Pages
+  update.yml       Runs every 3 days on GitHub Actions, deployed to GitHub Pages
 frontend/
   src/
     App.jsx        Layout, data loading, run polling

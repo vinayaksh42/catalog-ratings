@@ -195,6 +195,14 @@ def compare(prev_rows: list[dict], cur_rows: list[dict], min_votes: int, list_mi
         rows = sorted((lookup[i] for i in ids if i in lookup), key=lambda r: -(r["imdb_votes"] or 0))
         return [_title_card(r) for r in rows[:MOVERS_SIZE]]
 
+    def every(ids, rows):
+        """All titles in ids, rated or not, most-voted first."""
+        picked = sorted(
+            (r for r in rows if r["id"] in ids),
+            key=lambda r: (-(r["imdb_votes"] or 0), r["title"] or ""),
+        )
+        return [_title_card(r) for r in picked]
+
     return {
         "added": len(added_ids),
         "removed": len(removed_ids),
@@ -205,10 +213,12 @@ def compare(prev_rows: list[dict], cur_rows: list[dict], min_votes: int, list_mi
         "drift_effect": _round(drift, 3),
         "catalog_effect": _round(catalog, 3),
         "stayer_mean_change": _round(_mean(list(deltas.values())), 3),
-        "rising": sorted(movers, key=lambda m: -m["change"])[:MOVERS_SIZE],
-        "falling": sorted(movers, key=lambda m: m["change"])[:MOVERS_SIZE],
+        "rising": sorted((m for m in movers if m["change"] > 0), key=lambda m: -m["change"])[:MOVERS_SIZE],
+        "falling": sorted((m for m in movers if m["change"] < 0), key=lambda m: m["change"])[:MOVERS_SIZE],
         "added_examples": notable(added_ids, cur_rated),
         "removed_examples": notable(removed_ids, prev_rated),
+        "added_titles": every(added_ids, cur_rows),
+        "removed_titles": every(removed_ids, prev_rows),
     }
 
 

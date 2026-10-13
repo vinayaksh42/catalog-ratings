@@ -92,7 +92,7 @@ export default function App() {
           {metrics && <p className="as-of">Showing run {metrics.run.id}, finished {when(metrics.run.finished_at)}</p>}
         </div>
         {STATIC ? (
-          <p className="run-message">Updated weekly.</p>
+          <p className="run-message">Updated every 3 days.</p>
         ) : (
           <RunControl status={status} onStart={startRun} canStart={config?.tmdb_configured !== false} />
         )}

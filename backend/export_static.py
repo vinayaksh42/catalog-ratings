@@ -1,6 +1,6 @@
 """Run the pipeline once, then export the dashboard's data as static JSON files.
 
-Used by the weekly GitHub Actions workflow to publish the dashboard on GitHub Pages
+Used by the scheduled GitHub Actions workflow to publish the dashboard on GitHub Pages
 without a server. Run from backend/:
 
     python export_static.py --out ../frontend/dist/data

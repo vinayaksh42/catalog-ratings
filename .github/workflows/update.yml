@@ -1,12 +1,14 @@
-# Weekly run: pull fresh catalogs and IMDb ratings, then publish the dashboard to GitHub Pages.
+# Every 3 days: pull fresh catalogs and IMDb ratings, then publish the dashboard to GitHub Pages.
 #
 # The SQLite database (title-to-IMDb matches and every past run) is kept as an asset on a
 # GitHub release tagged "data", not in git. Each run downloads it, adds a run, and uploads it back.
-name: Weekly run
+name: Update dashboard
 
 on:
   schedule:
-    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+    # 06:00 UTC on the 1st, 4th, 7th ... of each month. The gap is shorter across a month end
+    # (31st -> 1st), since cron restarts the count every month.
+    - cron: "0 6 */3 * *"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,7 @@ permissions:
 
 # Never let two runs work on the same database at once.
 concurrency:
-  group: weekly-run
+  group: update-dashboard
   cancel-in-progress: false
 
 env:
@@ -88,7 +90,7 @@ jobs:
           [ -f backend/data/catalog.db ] || exit 0
           gh release view "$DB_RELEASE" > /dev/null 2>&1 || gh release create "$DB_RELEASE" \
             --title "Dashboard database" --latest=false \
-            --notes "SQLite database used by the weekly workflow. Updated automatically; don't delete."
+            --notes "SQLite database used by the scheduled workflow. Updated automatically; don't delete."
           gh release upload "$DB_RELEASE" backend/data/catalog.db --clobber
 
       - uses: actions/configure-pages@v5

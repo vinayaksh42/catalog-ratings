@@ -1,6 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const RATING_TICKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// On narrow screens charts are drawn on a narrower canvas, so they come out taller and their
+// labels stay readable once scaled down to the screen.
+const NARROW_QUERY = "(max-width: 720px)";
+
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const update = () => setNarrow(mq.matches);
+    mq.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => {
+      mq.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  return narrow;
+}
 
 /* One catalog as a barcode: a mark at each 0.1 rating step, darker where more titles sit. */
 export function RatingStrip({ density, summary, color, label }) {
@@ -64,7 +83,8 @@ export function StripAxis() {
 
 /* Overlaid step outlines: share of each catalog per half-point of rating. */
 export function Histogram({ series }) {
-  const W = 1000;
+  const narrow = useNarrow();
+  const W = narrow ? 520 : 1000;
   const H = 300;
   const m = { l: 52, r: 12, t: 14, b: 34 };
   const peak = Math.max(0.05, ...series.flatMap((s) => s.values));
@@ -117,7 +137,8 @@ export function Histogram({ series }) {
 /* Multi-series line chart over runs, with a hover readout. */
 export function LineChart({ labels, series, format }) {
   const [hover, setHover] = useState(null);
-  const W = 1000;
+  const narrow = useNarrow();
+  const W = narrow ? 520 : 1000;
   const H = 320;
   const m = { l: 64, r: 24, t: 16, b: 38 };
   const values = series.flatMap((s) => s.values).filter((v) => v != null);
@@ -134,7 +155,7 @@ export function LineChart({ labels, series, format }) {
   const x = (i) => (n === 1 ? m.l + innerW / 2 : m.l + (i / (n - 1)) * innerW);
   const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
   const ticks = [0, 1, 2, 3].map((k) => lo + ((hi - lo) * (k + 0.5)) / 4);
-  const labelEvery = Math.max(1, Math.ceil(n / 8));
+  const labelEvery = Math.max(1, Math.ceil(n / (narrow ? 4 : 8)));
 
   const segments = (vals) => {
     const parts = [];

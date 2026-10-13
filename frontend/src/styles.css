@@ -393,10 +393,11 @@ button.primary:disabled {
 /* -- Changes ----------------------------------------------------------------- */
 .change-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 36px;
 }
 .change-col {
+  min-width: 0;
   border-top: 4px solid var(--c);
   padding-top: 16px;
 }
@@ -564,6 +565,8 @@ tbody th {
 /* -- Breakdown --------------------------------------------------------------- */
 .segmented {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   background: var(--strip-bg);
   border-radius: 10px;
   padding: 4px;
@@ -677,6 +680,121 @@ tbody th {
   color: var(--ink);
 }
 
+/* -- All titles added / removed ---------------------------------------------- */
+.see-all {
+  margin-top: 8px;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  font: 600 var(--step--1) var(--font-body);
+  color: var(--c, var(--ink));
+  cursor: pointer;
+}
+.see-all:hover {
+  text-decoration: underline;
+}
+.all-titles {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(85vh, 900px);
+  padding: 0;
+  border: none;
+  border-top: 4px solid var(--c);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.25);
+}
+.all-titles[open] {
+  display: flex;
+  flex-direction: column;
+}
+.all-titles::backdrop {
+  background: rgb(15 18 30 / 0.45);
+}
+.all-titles header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 8px;
+}
+.all-titles h3 {
+  margin: 0;
+  font-size: var(--step-1);
+}
+.all-titles .close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--strip-bg);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.all-titles-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 22px 0;
+}
+.all-titles-controls input {
+  flex: 1 1 180px;
+  min-width: 0;
+  font: var(--step-0) var(--font-body);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.all-titles-controls .segmented {
+  margin-bottom: 0;
+}
+.all-titles-count {
+  margin: 10px 22px 4px;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+.all-titles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 22px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.all-titles-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--strip-bg);
+}
+.all-titles-list li > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.all-titles-list li a,
+.all-titles-list li > div > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.all-titles-list .muted {
+  font-size: var(--step--1);
+}
+.all-titles .empty {
+  padding: 0 22px 20px;
+}
+.narrow-only {
+  display: none;
+}
+
 /* -- Responsive -------------------------------------------------------------- */
 @media (max-width: 960px) {
   .stat-row {
@@ -684,7 +802,7 @@ tbody th {
   }
   .change-grid,
   .breakdown {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 720px) {
@@ -723,7 +841,39 @@ tbody th {
     grid-template-columns: 7em 1fr 2.6em 3em;
   }
   .chart .tick {
-    font-size: 34px;
+    font-size: 20px;
+  }
+  .narrow-only {
+    display: inline-flex;
+  }
+  .change-col.inactive {
+    display: none;
+  }
+  th,
+  td {
+    padding-right: 10px;
+  }
+  .all-titles {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+  }
+  .all-titles header,
+  .all-titles-controls,
+  .all-titles-list,
+  .all-titles .empty {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .all-titles-count {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+  .all-titles-list li {
+    padding: 11px 0;
   }
 }
 

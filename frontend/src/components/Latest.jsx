@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DivergingBar, Histogram, RatingStrip, StripAxis } from "./Charts.jsx";
 import { PLATFORM_COLORS, count, num, pct, shortDate, signed, signedPoints, trend } from "../format.js";
 
@@ -127,6 +127,9 @@ function Distribution({ metrics, keys }) {
 
 /* -- Changes since the previous run ------------------------------------------ */
 function Changes({ metrics, keys }) {
+  const [selected, setSelected] = useState(null);
+  const [dialog, setDialog] = useState(null); // { platform, kind: "added" | "removed" }
+
   if (!metrics.previous_run) {
     return (
       <section className="section">
@@ -138,25 +141,40 @@ function Changes({ metrics, keys }) {
     );
   }
 
-  const effects = keys.flatMap((k) => {
+  const shown = keys.filter((k) => metrics.platforms[k].change && metrics.platforms[k].summary.catalog_size);
+  const active = shown.includes(selected) ? selected : shown[0];
+  const since = shortDate(metrics.previous_run.finished_at);
+
+  const effects = shown.flatMap((k) => {
     const c = metrics.platforms[k].change;
-    return c ? [c.drift_effect, c.catalog_effect] : [];
+    return [c.drift_effect, c.catalog_effect];
   });
   const scale = Math.max(0.05, ...effects.filter((v) => v != null).map(Math.abs));
 
   return (
     <section className="section">
-      <SectionHead title={`What changed since ${shortDate(metrics.previous_run.finished_at)}`}>
+      <SectionHead title={`What changed since ${since}`}>
         A platform’s mean can move for two reasons: titles already there were re-rated by IMDb users, or titles
         came and went. The two effects add up to the total change.
       </SectionHead>
+      {/* On phones, one platform at a time instead of five long columns. */}
+      <div className="segmented narrow-only" role="group" aria-label="Choose a platform">
+        {shown.map((k) => (
+          <button key={k} aria-pressed={k === active} onClick={() => setSelected(k)} style={{ "--c": PLATFORM_COLORS[k] }}>
+            {metrics.platforms[k].label}
+          </button>
+        ))}
+      </div>
       <div className="change-grid">
-        {keys.map((k) => {
+        {shown.map((k) => {
           const p = metrics.platforms[k];
           const c = p.change;
-          if (!c || !p.summary.catalog_size) return null;
           return (
-            <article key={k} className="change-col" style={{ "--c": PLATFORM_COLORS[k] }}>
+            <article
+              key={k}
+              className={`change-col${k === active ? "" : " inactive"}`}
+              style={{ "--c": PLATFORM_COLORS[k] }}
+            >
               <h3>{p.label}</h3>
               <p className={`change-total ${trend(c.mean_change)}`}>
                 {signed(c.mean_change, 3)}
@@ -184,32 +202,138 @@ function Changes({ metrics, keys }) {
                   </dd>
                 </div>
               </dl>
-              <TitleMini heading="Most-watched additions" items={c.added_examples} />
-              <TitleMini heading="Most-watched departures" items={c.removed_examples} />
+              <TitleMini
+                heading="Most-watched additions"
+                items={c.added_examples}
+                more={c.added_titles?.length ? `See all ${count(c.added)} additions` : null}
+                onMore={() => setDialog({ platform: k, kind: "added" })}
+              />
+              <TitleMini
+                heading="Most-watched departures"
+                items={c.removed_examples}
+                more={c.removed_titles?.length ? `See all ${count(c.removed)} departures` : null}
+                onMore={() => setDialog({ platform: k, kind: "removed" })}
+              />
               <TitleMini heading="Rising on IMDb" items={c.rising} showChange />
               <TitleMini heading="Falling on IMDb" items={c.falling} showChange />
             </article>
           );
         })}
       </div>
+      {dialog && (
+        <AllTitles
+          heading={`${metrics.platforms[dialog.platform].label}: ${dialog.kind} since ${since}`}
+          items={metrics.platforms[dialog.platform].change[`${dialog.kind}_titles`]}
+          color={PLATFORM_COLORS[dialog.platform]}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </section>
   );
 }
 
-function TitleMini({ heading, items, showChange = false }) {
-  if (!items?.length) return null;
+function TitleMini({ heading, items, showChange = false, more = null, onMore }) {
+  if (!items?.length && !more) return null;
   return (
     <div className="mini">
       <h4>{heading}</h4>
-      <ul>
-        {items.map((t) => (
-          <li key={`${t.imdb_id}-${t.title}`}>
-            <TitleLink t={t} />
-            <span className="num">{showChange ? signed(t.change, 1) : num(t.imdb_rating)}</span>
+      {items?.length > 0 && (
+        <ul>
+          {items.map((t) => (
+            <li key={`${t.imdb_id}-${t.title}`}>
+              <TitleLink t={t} />
+              <span className="num">{showChange ? signed(t.change, 1) : num(t.imdb_rating)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {more && (
+        <button type="button" className="see-all" onClick={onMore}>
+          {more}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const TYPE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "movie", label: "Movies" },
+  { key: "tv", label: "Shows" },
+];
+
+/* Every title added or removed since the previous run, in a modal list. */
+function AllTitles({ heading, items, color, onClose }) {
+  const ref = useRef(null);
+  const [type, setType] = useState("all");
+  const [query, setQuery] = useState("");
+
+  // Unmounting removes the dialog (and closes it), so there's no close() in a cleanup:
+  // that would fire a "close" event, and with it onClose, during React's dev double-mount.
+  useEffect(() => {
+    if (!ref.current.open) ref.current.showModal();
+  }, []);
+
+  const q = query.trim().toLowerCase();
+  const visible = items.filter(
+    (t) => (type === "all" || t.media_type === type) && (!q || (t.title || "").toLowerCase().includes(q))
+  );
+
+  return (
+    <dialog
+      ref={ref}
+      className="all-titles"
+      style={{ "--c": color }}
+      aria-label={heading}
+      onCancel={(e) => {
+        // Escape: let React remove the dialog rather than relying on a "close" event.
+        e.preventDefault();
+        onClose();
+      }}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && onClose()}
+    >
+      <header>
+        <h3>{heading}</h3>
+        <button type="button" className="close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
+      </header>
+      <div className="all-titles-controls">
+        <input
+          type="search"
+          placeholder="Search titles"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search titles"
+        />
+        <div className="segmented" role="group" aria-label="Filter by type">
+          {TYPE_FILTERS.map((f) => (
+            <button key={f.key} aria-pressed={type === f.key} onClick={() => setType(f.key)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="all-titles-count">
+        {count(visible.length)} of {count(items.length)} titles, most-voted first
+      </p>
+      <ul className="all-titles-list">
+        {visible.map((t, i) => (
+          <li key={`${t.imdb_id ?? t.title}-${i}`}>
+            <div>
+              <TitleLink t={t} />
+              <span className="muted">
+                {t.media_type === "tv" ? "Show" : "Movie"}
+                {t.imdb_votes ? ` · ${count(t.imdb_votes)} votes` : ""}
+              </span>
+            </div>
+            <span className="num">{num(t.imdb_rating)}</span>
           </li>
         ))}
       </ul>
-    </div>
+      {visible.length === 0 && <p className="empty">No titles match.</p>}
+    </dialog>
   );
 }
 
